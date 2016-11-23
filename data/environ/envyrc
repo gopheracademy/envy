@@ -14,3 +14,8 @@ fi
 if [ -f "/home/$ENVY_USER/.envyrc_$USER" ]; then
   source "/home/$ENVY_USER/.envyrc_$USER"
 fi
+
+export GOPATH=/home/$ENVY_USER
+export PATH=/home/$ENVY_USER/bin:/usr/local/go/bin:$PATH
+
+cd /home/$ENVY_USER

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/progrium/envy/cmd"
+	"github.com/gophertrain/envy/cmd"
 )
 
 func main() {

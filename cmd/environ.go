@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/spf13/cobra"
@@ -53,8 +54,9 @@ var cmdEnvironList = &cobra.Command{
 }
 
 type Environ struct {
-	User *User
-	Name string
+	User    *User
+	Name    string
+	IDEPort int
 }
 
 func (e *Environ) Path(parts ...string) string {
@@ -65,8 +67,54 @@ func (e *Environ) DockerImage() string {
 	return fmt.Sprintf("%s/%s", e.User.Name, e.Name)
 }
 
+func (e *Environ) IDEImage() string {
+	return "bketelsen/codebox"
+}
 func (e *Environ) DockerName() string {
 	return fmt.Sprintf("%s.%s", e.User.Name, e.Name)
+}
+
+func (e *Environ) IDEName() string {
+	return fmt.Sprintf("%s.%s", e.User.Name, "ide")
+}
+func (e *Environ) IDE(username, password string) int {
+	log.Println(e.User.Name, "| creating IDE")
+	os.Setenv("ENVY_USER", e.User.Name)
+	os.Setenv("ENVY_SESSION", e.IDEName())
+	for {
+		dockerRemove(e.IDEName())
+		args := []string{"run", "-d", "-P",
+			fmt.Sprintf("--name=%s", e.IDEName()),
+
+			fmt.Sprintf("--env=ENVY_RELOAD=%v", int32(time.Now().Unix())),
+			fmt.Sprintf("--env=ENVY_SESSION=%s", e.IDEName()),
+			fmt.Sprintf("--env=ENVY_USER=%s", e.User.Name),
+			"--env=DOCKER_HOST=unix:///var/run/docker.sock",
+			"--env=ENV=/etc/envyrc",
+
+			fmt.Sprintf("--volume=%s:/var/run/docker.sock", Envy.HostPath(e.Path("run/docker.sock"))),
+			fmt.Sprintf("--volume=%s:/var/run/envy.sock:ro", Envy.HostPath(e.Path("run/envy.sock"))),
+			fmt.Sprintf("--volume=%s:/etc/envyrc:ro", Envy.HostPath(e.Path("envyrc"))),
+			fmt.Sprintf("--volume=%s:/root/environ", Envy.HostPath(e.Path())),
+			fmt.Sprintf("--volume=%s:/root", Envy.HostPath(e.User.Path("root"))),
+			fmt.Sprintf("--volume=%s:/home/%s", Envy.HostPath(e.User.Path("home")), e.User.Name),
+			fmt.Sprintf("--volume=%s:/sbin/envy:ro", Envy.HostPath("bin/envy")),
+			fmt.Sprintf("--volume=%s:/sbin/docker:ro", Envy.HostPath("bin/docker")),
+		}
+		if e.User.Admin() {
+			args = append(args, fmt.Sprintf("--volume=%s:/envy", Envy.HostPath()))
+		}
+		args = append(args, e.IDEImage())
+		ws := fmt.Sprintf("/home/%s", e.User.Name)
+		args = append(args, ws)
+		up := fmt.Sprintf("--users=%s:%s", username, password)
+		args = append(args, "--port=80")
+		args = append(args, up)
+		status := run(exec.Command("/bin/docker", args...))
+		if status != 128 {
+			return status
+		}
+	}
 }
 
 func GetEnviron(user, name string) *Environ {
@@ -81,13 +129,16 @@ func GetEnviron(user, name string) *Environ {
 	if !dockerRunning(e.DockerName()) {
 		dockerRemove(e.DockerName())
 		log.Println(user, "| starting dind for environ", e.Name)
+		portBindings := map[docker.Port][]docker.PortBinding{
+			"80/tcp": {{HostIP: "0.0.0.0", HostPort: "18080"}}}
 		dockerRunDetached(docker.CreateContainerOptions{
 			Name: e.DockerName(),
 			Config: &docker.Config{
 				Hostname: e.Name,
-				Image:    "progrium/dind:latest",
+				Image:    "docker:1.12.1-dind",
 			},
 			HostConfig: &docker.HostConfig{
+				PortBindings:  portBindings,
 				Privileged:    true,
 				RestartPolicy: docker.RestartPolicy{Name: "always"},
 				Binds: []string{
@@ -97,11 +148,12 @@ func GetEnviron(user, name string) *Environ {
 			},
 		})
 	}
-	if !dockerImage(e.DockerImage()) {
-		log.Println(user, "| building environ", e.Name)
-		cmd := exec.Command("/bin/docker", "build", "-t", e.DockerImage(), ".")
-		cmd.Dir = e.Path()
-		assert(cmd.Run())
-	}
+	/*	if !dockerImage(e.DockerImage()) {
+			log.Println(user, "| building environ", e.Name)
+			cmd := exec.Command("/bin/docker", "build", "-t", e.DockerImage(), ".")
+			cmd.Dir = e.Path()
+			assert(cmd.Run())
+		}
+	*/
 	return e
 }

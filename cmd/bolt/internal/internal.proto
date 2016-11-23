@@ -1,0 +1,35 @@
+syntax = "proto2";
+
+package internal;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+option (gogoproto.gostring_all) = true;
+option (gogoproto.equal_all) = true;
+option (gogoproto.verbose_equal_all) = true;
+option (gogoproto.goproto_stringer_all) = false;
+option (gogoproto.stringer_all) =  true;
+option (gogoproto.populate_all) = true;
+option (gogoproto.testgen_all) = true;
+option (gogoproto.benchgen_all) = true;
+option (gogoproto.marshaler_all) = true;
+option (gogoproto.sizer_all) = true;
+option (gogoproto.unmarshaler_all) = true;
+
+message Student {
+	optional int64 UID = 1;
+	optional string Username = 2;
+	optional string Password = 3;
+	optional string FullName = 4;
+	optional string Email = 5;
+	optional string HomeDirectory = 6;
+  	repeated Course Courses = 7;
+}
+
+message Course {
+	optional int64 ID = 1;
+	optional string Name = 2;
+	optional string Description = 3;
+	optional string Instructor = 4;
+	optional string InstructorEmail = 5;
+}

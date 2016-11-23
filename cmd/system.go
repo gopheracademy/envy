@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/gophertrain/envy/cmd/bolt"
+	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 )
 
@@ -62,12 +64,30 @@ var cmdAuth = &cobra.Command{
 var cmdServe = &cobra.Command{
 	Use: "serve",
 	Run: func(cmd *cobra.Command, args []string) {
+
+		log.Println("Setting up student manager...")
+		client := bolt.NewClient()
+		client.Path = Envy.Path("studentmgr.db")
+		err := client.Open()
+		if err != nil {
+			log.Panic(err)
+		}
+
+		session := client.Connect()
+
+		server := NewServer(session.StudentStorage(), session.CourseStorage())
+
+		ss, err := session.StudentStorage().List()
+		pretty.Println(ss)
+
+		http.Handle("/manager/", server.Router)
+
 		log.Println("Setting up Envy root ...")
 		Envy.Setup()
 
 		go func() {
-			log.Println("Pulling progrium/dind:latest ...")
-			exec.Command("/bin/docker", "pull", "progrium/dind:latest").Run()
+			log.Println("Pulling docker:1.12.1-dind...")
+			exec.Command("/bin/docker", "pull", "docker:1.12.1-dind").Run()
 		}()
 
 		log.Println("Starting HTTP server on 80 ...")

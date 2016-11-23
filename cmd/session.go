@@ -128,6 +128,7 @@ func (s *Session) Enter(environ *Environ) int {
 			fmt.Sprintf("--volume=%s:/root", Envy.HostPath(s.User.Path("root"))),
 			fmt.Sprintf("--volume=%s:/home/%s", Envy.HostPath(s.User.Path("home")), s.User.Name),
 			fmt.Sprintf("--volume=%s:/sbin/envy:ro", Envy.HostPath("bin/envy")),
+			fmt.Sprintf("--volume=%s:/sbin/docker:ro", Envy.HostPath("bin/docker")),
 		}
 		if s.User.Admin() {
 			args = append(args, fmt.Sprintf("--volume=%s:/envy", Envy.HostPath()))
